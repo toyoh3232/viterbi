@@ -8,7 +8,7 @@ A Convolutional Encoder/Decoder
 |-------|-----------|
 |[0] | REGISTER[2]|
 |[1] | REGISTER[0] ⊕ REGISTER[1]|
-|[3] | REGISTER[1] ⊕ REGISTER[2]|
+|[2] | REGISTER[1] ⊕ REGISTER[2]|
 
 Test case is like following
 
