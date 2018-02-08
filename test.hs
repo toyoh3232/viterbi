@@ -1,12 +1,12 @@
-import Data.Bits
-import Data.List
+import Data.Bits (xor)
+import Data.List 
 
-type Binary          = Int
-type RawCode         = [Binary]
-type State           = [Int]
-type StateWithInput  = (State,Int)
-type StateWithOutput = (State,[Int]) 
-type TrellisGraph    = [(StateWithInput,StateWithOutput)]
+type Bit             = Int
+type Bits            = [Bit]
+type State           = [Bit]
+type StateWithInput  = (State, Bit)
+type StateWithOutput = (State, Bits) 
+type TrellisGraph    = [(StateWithInput, StateWithOutput)]
 type Polynomial      = [Int]
 
 -- delete the last element from the list
@@ -15,17 +15,17 @@ dl (x:[])   = []
 dl (x:xs) = x:dl xs 
 
 -- right shift the state and add one bit
-add :: Binary -> State -> State
+add :: Bit -> State -> State
 add i xs = i:dl xs 
 
 -- exclusive or on all the bits
-xorl :: [Binary] -> Binary
+xorl :: [Bit] -> Bit
 xorl [x]      = x
 xorl (x:y:[]) = xor x y
 xorl (x:xs)   = xor x (xorl xs)
 
 -- exclusive or on all the bits assigned by the polynomial
-xorlp :: [Binary] -> Polynomial -> Int
+xorlp :: [Bit] -> Polynomial -> Bit
 xorlp xs is = xorl [xs !! i | i <- is] 
 
 -- generate all states using permutation
@@ -38,7 +38,7 @@ gsn :: Int -> Int
 gsn n = gsn' n 1 
 
 gsn' :: Int -> Int -> Int 
-gsn' n x = if (2 ^ x) == n then x - 1 else gsn' n (x+1)
+gsn' n x = if (2 ^ x) == n then x - 1 else gsn' n (x + 1)
 
 -- generate all states with input
 gaswi :: Int -> [StateWithInput]
@@ -54,37 +54,38 @@ tl :: [Polynomial] -> Int -> TrellisGraph
 tl ps l = [(swi, gswo swi ps) | swi <- gaswi l]
 
 -- branch metrics
-bm :: TrellisGraph -> State -> State -> RawCode -> Int
-bm t si so i = let o = head [o_ |((si_,i_),(so_,o_)) <- t,si_==si,so_==so]
+bm :: TrellisGraph -> State -> State -> Bits -> Int
+bm t si so i = let o = head [o' | ((si', i'), (so', o')) <- t, si' == si, so' == so]
                in  length $ i \\ o
 
 -- path metric
-pm :: TrellisGraph ->State -> [RawCode] -> Int
-pm t s [] = if all (\x -> x==0) s then 0 else 99999
-pm t s i  = let [a,b] =[si |((si,i),(so,o)) <- t,so==s]
-                fi    = dl i
+pm :: TrellisGraph ->State -> [Bits] -> Int
+pm t s [] = if all (\x -> x == 0) s then 0 else 99999
+pm t s i  = let [a, b] = [si | ((si, i), (so, o)) <- t, so == s]
+                fi     = dl i
             in minimum [pm t a fi + bm t a s (last i), 
                         pm t b fi + bm t b s (last i)]
 
 -- encode
-ec :: TrellisGraph -> RawCode -> [RawCode]
-ec t cs = ec' t  [n-n| n<-[1..gsn $ length t]] cs
+ec :: TrellisGraph -> Bits -> [Bits]
+ec t cs = ec' t  [n-n| n <- [1..gsn $ length t]] cs
 
-ec' :: TrellisGraph -> State -> RawCode -> [RawCode]
+ec' :: TrellisGraph -> State -> Bits -> [Bits]
 ec' t s []     = []
-ec' t s (i:is) = let (sn,o) =head [swo|((si_,i_),swo) <- t,si_==s,i_== i]
+ec' t s (i:is) = let (sn, o) = head [swo | ((si', i'), swo) <- t, si' == s,i' == i]
                  in  o:ec' t sn is
 
 -- decode
-dc :: TrellisGraph -> [RawCode] -> RawCode
-dc t cs = dc' t [n-n| n<-[1..gsn $ length t]] [(take n cs) | n <- [1..length cs]]
+dc :: TrellisGraph -> [Bits] -> Bits
+dc t cs = dc' t [n-n | n<-[1..gsn $ length t]] [(take n cs) | n <- [1..length cs]]
 
-dc' :: TrellisGraph -> State -> [[RawCode]] -> RawCode
+dc' :: TrellisGraph -> State -> [[Bits]] -> Bits
 dc' t s []     = []
-dc' t s (c:cs) = let s0         = head [(so,i) | ((si,i),(so,o)) <- t,si == s,i==0]
-                     s1         = head [(so,i) | ((si,i),(so,o)) <- t,si == s,i==1]
-                     (sn,i,_)   = head $ sortBy (\(s1,i1,p1) (s2,i2,p2) -> compare p1 p2) [(s_, i, pm t s_ c) | (s_,i) <- [s0,s1]]
-                 in i : (dc' t sn cs)
+dc' t s (c:cs) = let s0         = head [(so, i) | ((si, i),(so, o)) <- t,si == s,i == 0]
+                     s1         = head [(so, i) | ((si, i),(so, o)) <- t,si == s,i == 1]
+                     (s',i,_)   = head $ sortBy (\(s, i, p) (s', i', p') -> compare p p') 
+                                                [(s', i', pm t s' c) | (s', i') <- [s0, s1]]
+                 in i : (dc' t s' cs)
 
 printT :: TrellisGraph -> IO ()
 printT []                    = return ()
