@@ -56,8 +56,8 @@ gswo (s, i) ps = let newState = (add i s)
                  in  (newState, [xorlp newState p | p <- ps])
 
 -- generate the trellis graph with input of polynomials and number of registers
-tl :: [Polynomial] -> Int -> TrellisGraph 
-tl ps l = [(swi, gswo swi ps) | swi <- gaswi l]
+tl :: [Polynomial] -> TrellisGraph 
+tl ps = [(swi, gswo swi ps) | swi <- gaswi $ (maximum.maximum) ps + 1]
 
 -- branch metrics
 bm :: TrellisGraph -> State -> State -> Bits -> Int
